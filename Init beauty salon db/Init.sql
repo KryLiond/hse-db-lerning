@@ -1,61 +1,64 @@
--- Таблица для должностей
+-- Таблица должностей
 CREATE TABLE Positions (
     PositionID SERIAL PRIMARY KEY,
-    PositionName VARCHAR(100) NOT NULL,
-    Description TEXT
+    PositionName VARCHAR(100) NOT NULL UNIQUE,
+    Description TEXT,
+    CHECK (PositionName <> '')
 );
 
--- Таблица для клиентов
+-- Клиенты
 CREATE TABLE Clients (
     ClientID SERIAL PRIMARY KEY,
-    FirstName VARCHAR(50) NOT NULL,
-    LastName VARCHAR(50) NOT NULL,
-    Phone VARCHAR(15) NOT NULL,
-    Email VARCHAR(100),
-    DateOfBirth DATE,
+    FirstName VARCHAR(50) NOT NULL CHECK (FirstName <> ''),
+    LastName VARCHAR(50) NOT NULL CHECK (LastName <> ''),
+    Phone VARCHAR(15) NOT NULL CHECK (Phone <> ''),
+    Email VARCHAR(100) UNIQUE CHECK (Email ~* '^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
+    DateOfBirth DATE CHECK (DateOfBirth < CURRENT_DATE),
     RegistrationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица для услуг
+-- Услуги
 CREATE TABLE Services (
     ServiceID SERIAL PRIMARY KEY,
-    ServiceName VARCHAR(100) NOT NULL,
+    ServiceName VARCHAR(100) NOT NULL UNIQUE CHECK (ServiceName <> ''),
     Description TEXT,
-    Price DECIMAL(10, 2) NOT NULL,
-    Duration INT NOT NULL -- продолжительность в минутах
+    Price DECIMAL(10, 2) NOT NULL CHECK (Price > 0),
+    Duration INT NOT NULL CHECK (Duration > 0)
 );
 
--- Таблица для сотрудников
+-- Сотрудники
 CREATE TABLE Employees (
     EmployeeID SERIAL PRIMARY KEY,
-    FirstName VARCHAR(50) NOT NULL,
-    LastName VARCHAR(50) NOT NULL,
-    Phone VARCHAR(15) NOT NULL,
-    Email VARCHAR(100),
-    PositionID INT,
-    HireDate DATE NOT NULL,
-    FOREIGN KEY (PositionID) REFERENCES Positions(PositionID) ON DELETE SET NULL
+    FirstName VARCHAR(50) NOT NULL CHECK (FirstName <> ''),
+    LastName VARCHAR(50) NOT NULL CHECK (LastName <> ''),
+    Phone VARCHAR(15) NOT NULL CHECK (Phone <> ''),
+    Email VARCHAR(100) UNIQUE CHECK (Email ~* '^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$'),
+    PositionID INT NOT NULL REFERENCES Positions(PositionID) ON DELETE RESTRICT,
+    HireDate DATE NOT NULL CHECK (HireDate <= CURRENT_DATE)
 );
 
--- Таблица для записей
+-- Записи
 CREATE TABLE Appointments (
     AppointmentID SERIAL PRIMARY KEY,
-    ClientID INT,
-    EmployeeID INT,
-    ServiceID INT,
+    ClientID INT NOT NULL REFERENCES Clients(ClientID) ON DELETE CASCADE,
+    EmployeeID INT NOT NULL REFERENCES Employees(EmployeeID) ON DELETE CASCADE,
+    ServiceID INT NOT NULL REFERENCES Services(ServiceID) ON DELETE CASCADE,
     AppointmentDate TIMESTAMP NOT NULL,
-    Status VARCHAR(20) CHECK (Status IN ('Запланирована', 'Завершена', 'Отменена')) NOT NULL,
-    FOREIGN KEY (ClientID) REFERENCES Clients(ClientID) ON DELETE CASCADE,
-    FOREIGN KEY (EmployeeID) REFERENCES Employees(EmployeeID) ON DELETE SET NULL,
-    FOREIGN KEY (ServiceID) REFERENCES Services(ServiceID) ON DELETE CASCADE
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Запланирована', 'Завершена', 'Отменена')),
+    UNIQUE (EmployeeID, AppointmentDate)
 );
 
--- Таблица для оплат
+-- Оплаты
 CREATE TABLE Payments (
     PaymentID SERIAL PRIMARY KEY,
-    AppointmentID INT UNIQUE,
-    Amount DECIMAL(10, 2) NOT NULL,
-    PaymentDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PaymentMethod VARCHAR(20) CHECK (PaymentMethod IN ('Наличные', 'Карта')) NOT NULL,
-    FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID) ON DELETE CASCADE
+    AppointmentID INT NOT NULL UNIQUE REFERENCES Appointments(AppointmentID) ON DELETE CASCADE,
+    Amount DECIMAL(10, 2) NOT NULL CHECK (Amount > 0),
+    PaymentDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PaymentMethod VARCHAR(20) NOT NULL CHECK (PaymentMethod IN ('Наличные', 'Карта'))
 );
+
+-- Индексы
+CREATE INDEX idx_appointments_date ON Appointments(AppointmentDate);
+CREATE INDEX idx_appointments_status ON Appointments(Status);
+CREATE INDEX idx_clients_phone ON Clients(Phone);
+CREATE INDEX idx_employees_position ON Employees(PositionID);
