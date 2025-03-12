@@ -62,3 +62,40 @@ CREATE INDEX idx_appointments_date ON Appointments(AppointmentDate);
 CREATE INDEX idx_appointments_status ON Appointments(Status);
 CREATE INDEX idx_clients_phone ON Clients(Phone);
 CREATE INDEX idx_employees_position ON Employees(PositionID);
+
+
+-- Триггеры
+
+-- Функция для проверки цены
+CREATE OR REPLACE FUNCTION check_service_price()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.Price < 100 THEN
+        RAISE EXCEPTION 'Цена услуги не может быть меньше 100 рублей';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер для таблицы Services
+CREATE TRIGGER trigger_check_service_price
+BEFORE INSERT OR UPDATE ON Services
+FOR EACH ROW
+EXECUTE FUNCTION check_service_price();
+
+-- Функция для обновления статуса
+CREATE OR REPLACE FUNCTION update_appointment_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.AppointmentDate < CURRENT_TIMESTAMP AND NEW.Status = 'Запланирована' THEN
+        NEW.Status := 'Завершена';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер для таблицы Appointments
+CREATE TRIGGER trigger_update_appointment_status
+BEFORE INSERT OR UPDATE ON Appointments
+FOR EACH ROW
+EXECUTE FUNCTION update_appointment_status();
